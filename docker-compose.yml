@@ -1,0 +1,93 @@
+version: '3.2'
+
+
+networks:
+  monitoring:
+    driver: bridge
+
+services:
+  jupyter:
+    build:
+      context: /home/administrador/docker/docker-environment/jupyter
+    ports:
+      - "8888:8888"
+    environment:
+      - JUPYTER_PASSWORD=your_password
+
+  spark:
+    build:
+      context: /home/administrador/docker/docker-environment/spark
+    ports:
+      - "8081:8080"
+
+  jenkins:
+    image: jenkins/jenkins:lts
+    ports:
+      - "8090:8080"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+  ssh-agent:
+    image: jenkins/ssh-agent
+
+  minio:
+    image: minio/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ROOT_USER: masoud
+      MINIO_ROOT_PASSWORD: Strong#Pass#2022
+    command: server --console-address ":9001" /data
+
+  # Monitoramento 
+
+  prometheus:
+
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - cadvisor
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - 8099:8080
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+      - redis
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - 6379:6379
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_INSTALL_PLUGINS=alexanderzobnin-zabbix-app
+    depends_on:
+      - prometheus
+    restart: always
+
+
+volumes:
+  minio_storage: {}
+  prometheus_data: {}
+  jenkins_home:
+
